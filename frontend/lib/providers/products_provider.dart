@@ -18,9 +18,11 @@ class ProductsProvider extends ChangeNotifier {
   List<String> get selectedTags => _selectedTags;
 
   Future<void> fetchProducts() async {
-    _loading = true;
+    if (_products.isEmpty) {
+      _loading = true;
+      notifyListeners();
+    }
     _error = null;
-    notifyListeners();
     try {
       _products = await _api.searchProducts(query: _searchQuery, tags: _selectedTags);
     } catch (e) {

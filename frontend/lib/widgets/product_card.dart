@@ -104,28 +104,45 @@ class _MediaPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hlsUrl = product.hlsManifestUrl;
+    final showVideo = kIsWeb && hovered && product.isReady && hlsUrl != null;
 
-    // On web: show muted autoplay video on hover when HLS is ready
-    if (kIsWeb && hovered && product.isReady && hlsUrl != null) {
-      return SizedBox(
-        height: 140,
-        width: double.infinity,
-        child: WebVideoPlayer(
-          hlsUrl: hlsUrl,
-          muted: true,
-          autoplay: true,
-          showControls: false,
-        ),
-      );
-    }
-
-    return _Thumbnail(url: product.effectiveThumbnailUrl);
+    // Always keep _Thumbnail in the tree; overlay the video on hover.
+    // Swapping between HtmlElementView and a Flutter widget causes Flutter web
+    // to fail repainting the canvas area after the platform view is removed.
+    return Stack(
+      children: [
+        _Thumbnail(url: product.effectiveThumbnailUrl),
+        if (showVideo)
+          SizedBox(
+            height: 140,
+            width: double.infinity,
+            child: WebVideoPlayer(
+              hlsUrl: hlsUrl!,
+              muted: true,
+              autoplay: true,
+              showControls: false,
+            ),
+          ),
+      ],
+    );
   }
 }
 
 class _Thumbnail extends StatelessWidget {
   final String? url;
   const _Thumbnail({this.url});
+
+  Widget _placeholder(BuildContext context) => Shimmer.fromColors(
+        baseColor: Colors.grey.shade300,
+        highlightColor: Colors.grey.shade100,
+        child: Container(height: 140, color: Colors.white),
+      );
+
+  Widget _errorBox() => Container(
+        height: 140,
+        color: Colors.grey.shade200,
+        child: const Icon(Icons.broken_image_outlined, size: 40),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -139,21 +156,26 @@ class _Thumbnail extends StatelessWidget {
         ),
       );
     }
+
+    if (kIsWeb) {
+      return Image.network(
+        url!,
+        height: 140,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        frameBuilder: (_, child, frame, __) =>
+            frame == null ? _placeholder(context) : child,
+        errorBuilder: (_, __, ___) => _errorBox(),
+      );
+    }
+
     return CachedNetworkImage(
       imageUrl: url!,
       height: 140,
       width: double.infinity,
       fit: BoxFit.cover,
-      placeholder: (_, __) => Shimmer.fromColors(
-        baseColor: Colors.grey.shade300,
-        highlightColor: Colors.grey.shade100,
-        child: Container(height: 140, color: Colors.white),
-      ),
-      errorWidget: (_, __, ___) => Container(
-        height: 140,
-        color: Colors.grey.shade200,
-        child: const Icon(Icons.broken_image_outlined, size: 40),
-      ),
+      placeholder: (_, __) => _placeholder(context),
+      errorWidget: (_, __, ___) => _errorBox(),
     );
   }
 }

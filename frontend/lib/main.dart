@@ -75,6 +75,11 @@ class _MainShellState extends State<_MainShell> {
     NavigationDestination(icon: Icon(Icons.receipt_long_outlined), label: 'Orders'),
   ];
 
+  void _onTabSelected(int i) {
+    if (i == 0) context.read<ProductsProvider>().fetchProducts();
+    setState(() => _tab = i);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width >= 720;
@@ -86,7 +91,7 @@ class _MainShellState extends State<_MainShell> {
           children: [
             NavigationRail(
               selectedIndex: _tab,
-              onDestinationSelected: (i) => setState(() => _tab = i),
+              onDestinationSelected: _onTabSelected,
               labelType: NavigationRailLabelType.all,
               leading: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -130,7 +135,7 @@ class _MainShellState extends State<_MainShell> {
       body: _tabContent,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
-        onDestinationSelected: (i) => setState(() => _tab = i),
+        onDestinationSelected: _onTabSelected,
         destinations: _tabs,
       ),
     );

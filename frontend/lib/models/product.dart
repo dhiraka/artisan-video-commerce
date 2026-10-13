@@ -45,7 +45,7 @@ class Product {
   String? get effectiveThumbnailUrl {
     if (thumbnailUrl != null) return thumbnailUrl;
     if (hlsManifestUrl != null) {
-      return hlsManifestUrl!.replaceFirst('manifest.m3u8', 'thumbnail000000000.jpeg');
+      return hlsManifestUrl!.replaceFirst('manifest.m3u8', 'thumbnail0000000000.jpeg');
     }
     return null;
   }

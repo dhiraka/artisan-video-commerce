@@ -185,17 +185,12 @@ class _ProductGrid extends StatelessWidget {
     );
   }
 
-  void _openProduct(BuildContext context, Product product) {
-    final width = MediaQuery.of(context).size.width;
-    if (width >= 720) {
-      // Tablet: push to right pane via navigation (simplified as full push for now)
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => ProductDetailScreen(productId: product.id),
-      ));
-    } else {
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => ProductDetailScreen(productId: product.id),
-      ));
+  void _openProduct(BuildContext context, Product product) async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => ProductDetailScreen(productId: product.id),
+    ));
+    if (context.mounted) {
+      context.read<ProductsProvider>().fetchProducts();
     }
   }
 }

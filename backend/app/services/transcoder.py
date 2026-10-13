@@ -1,9 +1,13 @@
+import logging
+
 from google.cloud.video import transcoder_v1
 from google.cloud.video.transcoder_v1.services.transcoder_service import (
     TranscoderServiceClient,
 )
 from google.protobuf import duration_pb2
 from app.config import settings
+
+log = logging.getLogger(__name__)
 
 
 def create_hls_job(product_id: str, input_object_key: str) -> str:
@@ -21,6 +25,8 @@ def create_hls_job(product_id: str, input_object_key: str) -> str:
 
     input_uri = f"gs://{settings.gcs_upload_bucket}/{input_object_key}"
     output_uri = f"gs://{settings.gcs_output_bucket}/hls/{product_id}/"
+
+    log.info("Creating transcoder job: product=%s input=%s output=%s", product_id, input_uri, output_uri)
 
     job = transcoder_v1.Job(
         input_uri=input_uri,
@@ -55,13 +61,16 @@ def create_hls_job(product_id: str, input_object_key: str) -> str:
     )
 
     response = client.create_job(parent=parent, job=job)
+    log.info("Transcoder job created: %s", response.name)
     return response.name
 
 
-def get_job_status(job_name: str) -> str:
-    """Returns 'processing', 'ready', or 'failed'."""
+def get_job_status(job_name: str) -> tuple[str, str | None]:
+    """Returns (status, error_message) where status is 'processing', 'ready', or 'failed'."""
     client = TranscoderServiceClient()
     job = client.get_job(name=job_name)
+
+    log.info("Transcoder job %s state=%s", job_name, job.state)
 
     state_map = {
         transcoder_v1.Job.ProcessingState.PROCESSING_STATE_UNSPECIFIED: "processing",
@@ -70,7 +79,14 @@ def get_job_status(job_name: str) -> str:
         transcoder_v1.Job.ProcessingState.SUCCEEDED: "ready",
         transcoder_v1.Job.ProcessingState.FAILED: "failed",
     }
-    return state_map.get(job.state, "processing")
+    status = state_map.get(job.state, "processing")
+
+    error_message = None
+    if status == "failed":
+        error_message = job.error.message if job.error else "unknown error"
+        log.error("Transcoder job %s FAILED: %s", job_name, error_message)
+
+    return status, error_message
 
 
 def _elementary_streams() -> list:

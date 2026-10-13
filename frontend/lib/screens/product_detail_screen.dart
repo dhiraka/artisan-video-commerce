@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../config/app_config.dart';
 import '../models/product.dart';
 import '../services/api_service.dart';
 import '../widgets/video_player_widget.dart';
@@ -17,11 +19,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Product? _product;
   bool _loading = true;
   String? _error;
+  Timer? _pollTimer;
+  int _pollAttempts = 0;
 
   @override
   void initState() {
     super.initState();
     _loadProduct();
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadProduct() async {
@@ -31,12 +41,36 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         _product = p;
         _loading = false;
       });
+      if (!p.isReady && p.status != 'failed') {
+        _startPolling();
+      }
     } catch (e) {
       setState(() {
         _error = e.toString();
         _loading = false;
       });
     }
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollAttempts = 0;
+    _pollTimer = Timer.periodic(AppConfig.pollingInterval, (_) async {
+      if (_pollAttempts++ >= AppConfig.pollingMaxAttempts) {
+        _pollTimer?.cancel();
+        return;
+      }
+      try {
+        final status = await _api.getVideoStatus(widget.productId);
+        final s = status['status'] as String;
+        if (s == 'ready' || s == 'failed') {
+          _pollTimer?.cancel();
+          if (mounted) await _loadProduct();
+        }
+      } catch (_) {
+        // keep polling on transient errors
+      }
+    });
   }
 
   @override

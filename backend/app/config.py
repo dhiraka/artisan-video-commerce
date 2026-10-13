@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     gcs_output_bucket: str = ""
     transcoder_location: str = "us-central1"
     cors_origins: str = "*"
+    gcp_service_account_email: str = ""
 
     class Config:
         env_file = ".env"

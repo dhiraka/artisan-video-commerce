@@ -1,3 +1,4 @@
+import logging
 import uuid
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -6,6 +7,8 @@ from app.services.storage import generate_upload_signed_url
 from app.services.transcoder import create_hls_job, get_job_status
 from app.services.firestore import get_product, update_product
 from app.config import settings
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/videos", tags=["videos"])
 
@@ -41,7 +44,13 @@ def notify_upload_complete(req: NotifyUploadRequest):
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    job_name = create_hls_job(req.product_id, req.object_key)
+    try:
+        job_name = create_hls_job(req.product_id, req.object_key)
+    except Exception as e:
+        log.exception("Failed to create transcoder job for product=%s: %s", req.product_id, e)
+        update_product(req.product_id, {"status": "failed", "error": str(e)})
+        raise HTTPException(status_code=500, detail=f"Transcoder job creation failed: {e}")
+
     update_product(req.product_id, {"transcoder_job": job_name, "status": "processing"})
     return {"message": "Transcoding started", "job": job_name}
 
@@ -63,13 +72,17 @@ def get_video_status(product_id: str):
         }
 
     if current_status == "failed":
-        return {"status": "failed"}
+        return {"status": "failed", "error": product.get("error")}
 
     job_name = product.get("transcoder_job")
     if not job_name:
         return {"status": "processing"}
 
-    job_status = get_job_status(job_name)
+    try:
+        job_status, error_message = get_job_status(job_name)
+    except Exception as e:
+        log.exception("Failed to poll transcoder job %s: %s", job_name, e)
+        return {"status": "processing"}
 
     if job_status == "ready":
         hls_url = (
@@ -78,7 +91,7 @@ def get_video_status(product_id: str):
         )
         thumbnail_url = (
             f"https://storage.googleapis.com/{settings.gcs_output_bucket}"
-            f"/hls/{product_id}/thumbnail000000000.jpeg"
+            f"/hls/{product_id}/thumbnail0000000000.jpeg"
         )
         update_product(
             product_id,
@@ -91,6 +104,7 @@ def get_video_status(product_id: str):
         return {"status": "ready", "hls_manifest_url": hls_url, "thumbnail_url": thumbnail_url}
 
     if job_status == "failed":
-        update_product(product_id, {"status": "failed"})
+        update_product(product_id, {"status": "failed", "error": error_message})
+        return {"status": "failed", "error": error_message}
 
     return {"status": job_status}
