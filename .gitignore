@@ -1,0 +1,31 @@
+# Python virtualenv
+artisan/
+
+# Backend
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.env
+*.pyc
+
+# Flutter
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/build/
+frontend/.idea/
+frontend/*.iml
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/android/app/debug/
+frontend/android/app/release/
+frontend/android/app/profile/
+frontend/.pub-cache/
+
+# GCP credentials
+*.json.key
+service-account*.json
+
+# OS
+.DS_Store
+Thumbs.db
