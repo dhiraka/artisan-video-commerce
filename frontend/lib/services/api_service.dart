@@ -50,10 +50,20 @@ class ApiService {
       );
       return;
     }
+    // Dio's onSendProgress doesn't fire for raw streams — track via wrapper.
+    int bytesSent = 0;
+    final trackedStream = onProgress == null
+        ? stream
+        : stream.map((chunk) {
+            bytesSent += chunk.length;
+            onProgress(bytesSent, fileSize);
+            return chunk;
+          });
+
     final uploadDio = Dio();
     await uploadDio.put(
       signedUrl,
-      data: stream,
+      data: trackedStream,
       options: Options(
         headers: {
           HttpHeaders.contentTypeHeader: contentType,
@@ -62,7 +72,6 @@ class ApiService {
         sendTimeout: const Duration(minutes: 60),
         receiveTimeout: const Duration(minutes: 10),
       ),
-      onSendProgress: onProgress,
     );
   }
 

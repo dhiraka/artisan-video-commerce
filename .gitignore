@@ -22,6 +22,9 @@ frontend/android/app/release/
 frontend/android/app/profile/
 frontend/.pub-cache/
 
+# Firebase
+.firebase/
+
 # GCP credentials
 *.json.key
 service-account*.json
