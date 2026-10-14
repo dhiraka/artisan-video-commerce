@@ -54,12 +54,15 @@ class _WebVideoPlayerState extends State<WebVideoPlayer> {
         final isSupported = js.JsObject.fromBrowserObject(hlsClass)
             .callMethod('isSupported', []) as bool;
         if (isSupported) {
-          // Buffer exactly one 6-second segment ahead so the first click plays instantly.
           final config = js.JsObject.jsify({
             'autoStartLoad': true,
-            'maxBufferLength': 6,
-            'maxMaxBufferLength': 6,
-            'startLevel': -1, // auto quality selection
+            'maxBufferLength': 60,       // buffer 60s so slow network can fill ahead
+            'maxMaxBufferLength': 120,
+            'startLevel': 0,             // always start at lowest quality (144p)
+            'abrEwmaFastLive': 3.0,      // slow down quality upgrades on live
+            'abrEwmaSlowLive': 9.0,
+            'abrBandWidthFactor': 0.7,   // use only 70% of measured bandwidth for ABR
+            'abrBandWidthUpFactor': 0.5, // be conservative upgrading quality
           });
           final hlsInstance = js.JsObject(hlsClass as js.JsFunction, [config]);
           hlsInstance.callMethod('loadSource', [hlsUrl]);

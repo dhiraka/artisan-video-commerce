@@ -91,19 +91,20 @@ def get_job_status(job_name: str) -> tuple[str, str | None]:
 
 def _elementary_streams() -> list:
     return [
-        # ---- Ultra-low: ~30kbps video + 16kbps audio = ~46kbps total ----
+        # ---- Ultra-low: ~20kbps video + 8kbps audio = ~28kbps total ----
+        # Targets <50kbps networks with 44% headroom for TCP/TLS overhead
         transcoder_v1.ElementaryStream(
             key="video-ultra-low",
             video_stream=transcoder_v1.VideoStream(
                 h264=transcoder_v1.VideoStream.H264CodecSettings(
                     height_pixels=144,
                     width_pixels=256,
-                    bitrate_bps=30_000,
-                    frame_rate=15,
+                    bitrate_bps=20_000,
+                    frame_rate=10,
                     pixel_format="yuv420p",
                     rate_control_mode="vbr",
-                    vbv_size_bits=60_000,
-                    vbv_fullness_bits=30_000,
+                    vbv_size_bits=40_000,
+                    vbv_fullness_bits=20_000,
                     entropy_coder="cabac",
                     profile="baseline",
                 )
@@ -113,8 +114,8 @@ def _elementary_streams() -> list:
             key="audio-ultra-low",
             audio_stream=transcoder_v1.AudioStream(
                 codec="aac",
-                bitrate_bps=16_000,
-                channel_count=2,
+                bitrate_bps=8_000,
+                channel_count=1,
                 sample_rate_hertz=22050,
             ),
         ),
