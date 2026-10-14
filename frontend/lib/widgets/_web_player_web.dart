@@ -52,39 +52,9 @@ class _WebVideoPlayerState extends State<WebVideoPlayer> {
         ..setAttribute('preload', 'auto');
       if (posterUrl != null) video.poster = posterUrl;
 
-      // Prefer DASH/VP9+Opus when dash.js is loaded and a DASH URL is provided.
-      // VP9 at 20kbps + Opus at 8kbps = 28kbps total — ~44% headroom at 50kbps.
-      // Safari doesn't support VP9, so we fall through to native HLS there.
-      if (dashUrl != null) {
-        final dashClass = js.context['dashjs'];
-        if (dashClass != null) {
-          final mediaPlayer = js.JsObject.fromBrowserObject(dashClass)
-              .callMethod('MediaPlayer', []);
-          final playerInstance = js.JsObject.fromBrowserObject(mediaPlayer)
-              .callMethod('create', []);
-          final pi = js.JsObject.fromBrowserObject(playerInstance);
-
-          // Buffer aggressively so the player survives connection hiccups.
-          final settings = js.JsObject.jsify({
-            'streaming': {
-              'buffer': {
-                'bufferTimeAtTopQuality': 60,
-                'bufferTimeAtTopQualityLongForm': 120,
-                'initialBufferLevel': 8,
-              },
-              'abr': {
-                'initialBitrate': {'video': 20, 'audio': 8},
-                'maxBitrate': {'video': 20, 'audio': 8},
-              },
-            }
-          });
-          pi.callMethod('updateSettings', [settings]);
-          pi.callMethod('initialize', [video, dashUrl, autoplay]);
-          return video;
-        }
-      }
-
-      // Chrome/Firefox fallback: hls.js with conservative ABR config.
+      // Chrome/Firefox: hls.js with 4-tier ABR (144p → 720p).
+      // DASH manifest only has one ultra-low tier so it can't adapt up —
+      // hls.js is always preferred for quality adaptation.
       final hlsClass = js.context['Hls'];
       if (hlsClass != null) {
         final isSupported = js.JsObject.fromBrowserObject(hlsClass)
@@ -92,13 +62,16 @@ class _WebVideoPlayerState extends State<WebVideoPlayer> {
         if (isSupported) {
           final config = js.JsObject.jsify({
             'autoStartLoad': true,
-            'maxBufferLength': 60,
-            'maxMaxBufferLength': 120,
-            'startLevel': 0,             // always start at lowest quality (144p)
-            'abrEwmaFastLive': 3.0,
-            'abrEwmaSlowLive': 9.0,
-            'abrBandWidthFactor': 0.7,   // use only 70% of measured bandwidth
-            'abrBandWidthUpFactor': 0.5, // be conservative upgrading quality
+            'startLevel': 0,
+            'capLevelToPlayerSize': false,
+            'maxBufferLength': 30,
+            'maxMaxBufferLength': 60,
+            'fragLoadingTimeOut': 10000,
+            'fragLoadingMaxRetry': 2,
+            'abrEwmaFastVoD': 3.0,
+            'abrEwmaSlowVoD': 9.0,
+            'abrBandWidthFactor': 0.8,    // only upgrade if 80% of bandwidth fits the tier
+            'abrBandWidthUpFactor': 0.65, // conservative upgrades — avoids jumping over the 50kbps cliff
           });
           final hlsInstance = js.JsObject(hlsClass as js.JsFunction, [config]);
           hlsInstance.callMethod('loadSource', [hlsUrl]);

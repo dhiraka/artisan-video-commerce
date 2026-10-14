@@ -24,7 +24,7 @@ steps:
       - "--memory=1Gi"
       - "--cpu=1"
       - "--max-instances=10"
-      - "--set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_UPLOAD_BUCKET=artisan-uploads-$PROJECT_ID,GCS_OUTPUT_BUCKET=artisan-output-$PROJECT_ID,TRANSCODER_LOCATION=asia-south1,CORS_ORIGINS=*"
+      - "--set-env-vars=GCP_PROJECT_ID=$PROJECT_ID,GCS_UPLOAD_BUCKET=artisan-uploads-$PROJECT_ID,GCS_OUTPUT_BUCKET=artisan-output-$PROJECT_ID,TRANSCODER_LOCATION=asia-south1,CORS_ORIGINS=*,GCP_SERVICE_ACCOUNT_EMAIL=artisan-backend@artisan-video-commerce.iam.gserviceaccount.com"
 
 images:
   - "gcr.io/$PROJECT_ID/artisan-backend:latest"
