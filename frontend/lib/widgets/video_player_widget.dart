@@ -6,11 +6,13 @@ import '_web_player_stub.dart' if (dart.library.html) '_web_player_web.dart';
 
 class VideoPlayerWidget extends StatefulWidget {
   final String hlsUrl;
+  final String? dashUrl;
   final String? thumbnailUrl;
 
   const VideoPlayerWidget({
     super.key,
     required this.hlsUrl,
+    this.dashUrl,
     this.thumbnailUrl,
   });
 
@@ -57,7 +59,11 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: kIsWeb
-          ? WebVideoPlayer(hlsUrl: widget.hlsUrl, posterUrl: widget.thumbnailUrl)
+          ? WebVideoPlayer(
+              hlsUrl: widget.hlsUrl,
+              dashUrl: widget.dashUrl,
+              posterUrl: widget.thumbnailUrl,
+            )
           : (_chewieController != null
               ? Chewie(controller: _chewieController!)
               : const Center(child: CircularProgressIndicator())),

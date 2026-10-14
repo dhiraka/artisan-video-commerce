@@ -118,6 +118,7 @@ class _MediaPreview extends StatelessWidget {
             width: double.infinity,
             child: WebVideoPlayer(
               hlsUrl: hlsUrl!,
+              dashUrl: product.dashManifestUrl,
               muted: true,
               autoplay: true,
               showControls: false,

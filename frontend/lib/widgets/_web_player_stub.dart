@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class WebVideoPlayer extends StatelessWidget {
   final String hlsUrl;
+  final String? dashUrl;
   final String? posterUrl;
   final bool muted;
   final bool autoplay;
@@ -10,6 +11,7 @@ class WebVideoPlayer extends StatelessWidget {
   const WebVideoPlayer({
     super.key,
     required this.hlsUrl,
+    this.dashUrl,
     this.posterUrl,
     this.muted = false,
     this.autoplay = false,

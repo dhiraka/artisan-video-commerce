@@ -178,6 +178,7 @@ class _VideoSection extends StatelessWidget {
 
     return VideoPlayerWidget(
       hlsUrl: product.hlsManifestUrl!,
+      dashUrl: product.dashManifestUrl,
       thumbnailUrl: product.effectiveThumbnailUrl,
     );
   }

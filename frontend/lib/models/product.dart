@@ -49,4 +49,10 @@ class Product {
     }
     return null;
   }
+
+  // DASH manifest URL for VP9+Opus ultra-low bandwidth playback
+  String? get dashManifestUrl {
+    if (hlsManifestUrl == null) return null;
+    return hlsManifestUrl!.replaceFirst('manifest.m3u8', 'manifest.mpd');
+  }
 }

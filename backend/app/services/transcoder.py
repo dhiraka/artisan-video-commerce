@@ -12,13 +12,10 @@ log = logging.getLogger(__name__)
 
 def create_hls_job(product_id: str, input_object_key: str) -> str:
     """
-    Create a GCP Transcoder job that outputs HLS with 4 quality tiers:
-    - ultra-low: 144p @ ~46kbps (for <50kbps networks)
-    - low:       240p @ ~200kbps
-    - medium:    360p @ ~600kbps
-    - high:      720p @ ~2Mbps
+    Outputs:
+      HLS  — 4 H.264/AAC tiers (144p–720p) for broad compatibility
+      DASH — VP9/Opus ultra-low tier (~28 kbps) for <50 kbps networks
     Also generates a thumbnail at t=1s.
-    Returns the job name.
     """
     client = TranscoderServiceClient()
     parent = f"projects/{settings.gcp_project_id}/locations/{settings.transcoder_location}"
@@ -35,6 +32,7 @@ def create_hls_job(product_id: str, input_object_key: str) -> str:
             elementary_streams=_elementary_streams(),
             mux_streams=_mux_streams(),
             manifests=[
+                # HLS manifest — all 4 H.264 tiers
                 transcoder_v1.Manifest(
                     file_name="manifest.m3u8",
                     type_=transcoder_v1.Manifest.ManifestType.HLS,
@@ -44,7 +42,13 @@ def create_hls_job(product_id: str, input_object_key: str) -> str:
                         "hls-medium",
                         "hls-high",
                     ],
-                )
+                ),
+                # DASH manifest — VP9+AAC ultra-low (~28 kbps)
+                transcoder_v1.Manifest(
+                    file_name="manifest.mpd",
+                    type_=transcoder_v1.Manifest.ManifestType.DASH,
+                    mux_streams=["dash-video-ultra-low", "dash-audio-ultra-low"],
+                ),
             ],
             sprite_sheets=[
                 transcoder_v1.SpriteSheet(
@@ -91,8 +95,10 @@ def get_job_status(job_name: str) -> tuple[str, str | None]:
 
 def _elementary_streams() -> list:
     return [
-        # ---- Ultra-low: ~20kbps video + 8kbps audio = ~28kbps total ----
-        # Targets <50kbps networks with 44% headroom for TCP/TLS overhead
+        # ── H.264 streams for HLS ────────────────────────────────────────────
+
+        # Ultra-low: 20kbps video + 8kbps audio = ~28kbps total
+        # 44% headroom on a 50kbps network after TCP/TLS overhead
         transcoder_v1.ElementaryStream(
             key="video-ultra-low",
             video_stream=transcoder_v1.VideoStream(
@@ -116,10 +122,12 @@ def _elementary_streams() -> list:
                 codec="aac",
                 bitrate_bps=8_000,
                 channel_count=1,
+                channel_layout=["fc"],
                 sample_rate_hertz=22050,
             ),
         ),
-        # ---- Low: ~150kbps video + 48kbps audio ----
+
+        # Low: ~150kbps video + 48kbps audio
         transcoder_v1.ElementaryStream(
             key="video-low",
             video_stream=transcoder_v1.VideoStream(
@@ -144,7 +152,8 @@ def _elementary_streams() -> list:
                 sample_rate_hertz=44100,
             ),
         ),
-        # ---- Medium: ~500kbps video + 96kbps audio ----
+
+        # Medium: ~500kbps video + 96kbps audio
         transcoder_v1.ElementaryStream(
             key="video-medium",
             video_stream=transcoder_v1.VideoStream(
@@ -169,7 +178,8 @@ def _elementary_streams() -> list:
                 sample_rate_hertz=44100,
             ),
         ),
-        # ---- High: ~2Mbps video + 128kbps audio ----
+
+        # High: ~2Mbps video + 128kbps audio
         transcoder_v1.ElementaryStream(
             key="video-high",
             video_stream=transcoder_v1.VideoStream(
@@ -194,6 +204,36 @@ def _elementary_streams() -> list:
                 sample_rate_hertz=44100,
             ),
         ),
+
+        # ── VP9 + Opus stream for DASH ───────────────────────────────────────
+        # VP9 delivers same quality as H.264 at ~50% the bitrate.
+        # Opus at 8kbps mono is intelligible speech — far better than AAC at same bitrate.
+        # Total: ~28kbps, identical target to HLS ultra-low but better quality.
+
+        transcoder_v1.ElementaryStream(
+            key="video-ultra-low-vp9",
+            video_stream=transcoder_v1.VideoStream(
+                vp9=transcoder_v1.VideoStream.Vp9CodecSettings(
+                    height_pixels=144,
+                    width_pixels=256,
+                    bitrate_bps=20_000,
+                    frame_rate=10,
+                    pixel_format="yuv420p",
+                    rate_control_mode="vbr",
+                    profile="profile0",
+                )
+            ),
+        ),
+        transcoder_v1.ElementaryStream(
+            key="audio-ultra-low-dash",
+            audio_stream=transcoder_v1.AudioStream(
+                codec="aac",
+                bitrate_bps=8_000,
+                channel_count=1,
+                channel_layout=["fc"],
+                sample_rate_hertz=22050,
+            ),
+        ),
     ]
 
 
@@ -202,6 +242,7 @@ def _mux_streams() -> list:
         segment_duration=duration_pb2.Duration(seconds=6)
     )
     return [
+        # HLS — MPEG-TS container (H.264 + AAC)
         transcoder_v1.MuxStream(
             key="hls-ultra-low",
             container="ts",
@@ -224,6 +265,20 @@ def _mux_streams() -> list:
             key="hls-high",
             container="ts",
             elementary_streams=["video-high", "audio-high"],
+            segment_settings=seg,
+        ),
+
+        # DASH — fmp4, one elementary stream per mux (VP9 video + AAC audio)
+        transcoder_v1.MuxStream(
+            key="dash-video-ultra-low",
+            container="fmp4",
+            elementary_streams=["video-ultra-low-vp9"],
+            segment_settings=seg,
+        ),
+        transcoder_v1.MuxStream(
+            key="dash-audio-ultra-low",
+            container="fmp4",
+            elementary_streams=["audio-ultra-low-dash"],
             segment_settings=seg,
         ),
     ]

@@ -69,6 +69,11 @@ class UploadProvider extends ChangeNotifier {
       _errorMessage = null;
       notifyListeners();
 
+      // Check title uniqueness before starting the upload so the user can fix it
+      // without waiting for GCS transfer to complete.
+      final titleExists = await _api.checkTitleExists(title);
+      if (titleExists) throw Exception('A product with this title already exists');
+
       final filename = _selectedFile!.name;
       final contentType = _mimeType(filename);
       final fileSize = _selectedFile!.size;
